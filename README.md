@@ -1,34 +1,65 @@
-# Tripwire — a firewall for AI-agent payments on Airwallex
-Agentic Banking Hackathon (HackerEarth) · Shyam's Team 2
+# Tripwire: a firewall for AI-agent payments (Airwallex + Metal)
+Airwallex Agentic Banking Hackathon (HackerEarth) · Shyam's Team 2
 
-Flow: agent → `POST /pay` → deterministic **policy gate** (amount limits, payee/country allowlists, velocity, FX deviation, time window → allow/hold/deny) → **Claude verifier** (can only tighten) → **hash-chained audit log** → execute on Airwallex, or hold for human approval (Slack; stubbed).
+Agents never hold payment keys. They call `POST /pay`; Tripwire decides **ALLOW / HOLD / DENY** and only then moves money on
+**Airwallex** (transfers, FX, Issuing virtual cards) or **Metal testnet** (x402 `exact`, on-chain **mandates**, **Kit 12 clearing**).
 
-Starter kits: 01 treasury (transfers + FX), 02 cards (real sandbox Issuing virtual cards, simulated fallback), 03.
+```
+agent → POST /pay → deterministic policy gate (limits, payee/country allowlists, velocity, FX deviation, time window)
+      → Claude verifier (can only tighten; fails closed) → hash-chained audit log
+      → ALLOW: execute on Airwallex sandbox / Metal testnet
+      → HOLD : Slack Approve/Deny card (or dashboard) → /holds/{id}/approve|deny → execute
+      → DENY : nothing moves, rules recorded
+```
+
+## Integrations
+| Integration | What it does | Code |
+|---|---|---|
+| Airwallex sandbox | login, live FX rates, transfers, Issuing cardholders + virtual cards (simulated fallback on error) | `tripwire/airwallex.py` |
+| Metal testnet, Kit 11 | x402 `exact` payments; mandate (owner's MetalAccount, cap 1 / budget 5 USDZ, payee allowlist) bound on chain; agent pays under it | `tripwire/metal.py`, `@metalntwx/metal-agent@0.3.3` |
+| Metal testnet, Kit 12 | clearing (`bajillion`): deposit once, pay per call off chain, preconfirmed receipt | `metal/clearing.mjs`, `@metalntwx/metal-pay@0.3.4` |
+| Slack approvals | Block Kit Approve/Deny buttons, signed `/slack/interactions` (HMAC v0) → hold resolve; console stub if unset | `tripwire/slack.py` |
+| Claude verifier | Anthropic Messages API, tighten-only, fail-closed; heuristic stub if no key | `tripwire/verifier.py` |
+| Dashboard | decisions, holds with Approve/Deny, audit-chain status, recent Airwallex/Metal actions | `dashboard/index.html` at `/` |
+
+Metal is hard-wired to **testnet** (`eip155:63825`); there is no mainnet path.
 
 ## Setup
 ```bash
-python -m venv .venv && . .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env   # fill keys; empty = mock Airwallex + stub verifier
-pytest -q
-uvicorn tripwire.app:app --reload
-curl -XPOST localhost:8000/pay -H 'content-type: application/json' \
-  -d '{"agent_id":"ap-bot","amount":250,"payee_id":"ben_1","payee_country":"GB","buy_currency":"GBP"}'
-python -m tripwire.audit verify tripwire.db
+python -m venv .venv && . .venv/bin/activate && pip install -r requirements.txt
+cp .env.example .env            # Airwallex sandbox keys; empty = mock
+cd metal && npm install && cd ..  # Metal packages (Node 22.13+ needed for clearing)
+# Metal testnet wallet (keys stay in .metal-keys/, gitignored)
+M=metal/node_modules/.bin/metal-agent
+$M key create --out .metal-keys/agent.json && $M fund <address> --network testnet
+$M pay https://rpc-testnet.metalntwx.com/v1 --network testnet --key .metal-keys/agent.json --method POST \
+   --body '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}'   # header rpc-aas-endpoint -> METAL_RPC_URL in .metal-keys/rpc.env
+$M account create --out .metal-keys/owner.json --network testnet && $M fund <account> --network testnet
+$M mandate credential create --principal <account> --payee <seller> --cap 1 --budget 5 --key .metal-keys/owner.json --out .metal-keys/mandate.json --network testnet
+$M mandate bind --credential .metal-keys/mandate.json --key .metal-keys/owner.json --network testnet
+(cd metal && node clearing.mjs deposit 0.2)
+pytest -q && uvicorn tripwire.app:app     # dashboard at http://localhost:8000/
 ```
-Endpoints: `POST /pay`, `POST /holds/{id}/approve|deny`, `GET /audit/verify`.
+Endpoints: `POST /pay` (`kind`: transfer | card | x402 with `url`, `metal_mode`: exact | mandate | clearing), `POST /holds/{id}/approve|deny`,
+`POST /slack/interactions`, `GET /holds /decisions /actions /status /audit/verify`.
 
-## Live sandbox demo (Airwallex demo sandbox, Oct 29 2026)
+## Live demo (Airwallex demo sandbox + Metal testnet, Oct 29 2026)
 | | |
 |---|---|
-| API docs | ![](docs/screenshots/00_api_docs.png) |
+| Dashboard | ![](docs/screenshots/09_dashboard.png) |
 | $25 transfer → ALLOW, executed | ![](docs/screenshots/01_pay_25_transfer_allowed.png) |
 | $250 with live FX check → ALLOW | ![](docs/screenshots/02_pay_250_fx_checked.png) |
 | $50 card → real Issuing virtual card ACTIVE | ![](docs/screenshots/03_pay_50_real_card_active.png) |
-| $5,000 → HOLD for human approval | ![](docs/screenshots/04_pay_5000_held_for_approval.png) |
+| $5,000 → HOLD | ![](docs/screenshots/04_pay_5000_held_for_approval.png) |
+| Held payment approved → executed | ![](docs/screenshots/08_hold_approved_executed.png) |
 | Payee in KP → DENY | ![](docs/screenshots/05_pay_kp_denied.png) |
+| Metal x402 exact | ![](docs/screenshots/10_metal_x402_exact.png) |
+| Metal mandate payment | ![](docs/screenshots/11_metal_mandate_pay.png) |
+| Metal Kit 12 clearing | ![](docs/screenshots/12_metal_kit12_clearing.png) |
+| Verifier HOLD on Metal, human approves | ![](docs/screenshots/13_metal_hold_then_approve.png) |
+| Slack approval card | ![](docs/screenshots/14_slack_approval_card.png) |
 | Audit chain verification | ![](docs/screenshots/06_audit_verify.png) |
-| Tests: 17/17 passed | ![](docs/screenshots/07_tests_17_passed.png) |
-| Held payment approved by human → executed | ![](docs/screenshots/08_hold_approved_executed.png) |
+| Tests 23/23 | ![](docs/screenshots/07_tests_passed.png) |
+| API docs | ![](docs/screenshots/00_api_docs.png) |
 
-Demo video (2 min): [docs/demo.mp4](docs/demo.mp4) · Submission draft: [docs/SUBMISSION.md](docs/SUBMISSION.md)
+Demo video: [docs/demo.mp4](docs/demo.mp4) · Submission draft: [docs/SUBMISSION.md](docs/SUBMISSION.md)
