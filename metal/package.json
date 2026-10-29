@@ -1,0 +1,1 @@
+{"name":"tripwire-metal","private":true,"type":"module","dependencies":{"@metalntwx/metal-agent":"0.3.3","@metalntwx/metal-pay":"0.3.4","@x402/core":"2.29.0","@x402/fetch":"2.29.0","@x402/evm":"2.29.0","viem":"*"},"overrides":{"@x402/core":"2.29.0","@x402/fetch":"2.29.0","@x402/evm":"2.29.0"}}

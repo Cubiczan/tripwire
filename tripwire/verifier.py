@@ -13,7 +13,7 @@ def verify(req, verdict):
     try:
         r = httpx.post("https://api.anthropic.com/v1/messages", timeout=30, headers={"x-api-key": key, "anthropic-version": "2023-06-01"},
                        json={"model": MODEL, "max_tokens": 200, "messages": [{"role": "user", "content": prompt}]})
-        j = json.loads(r.json()["content"][0]["text"]); d = Decision(j["decision"])
+        r.raise_for_status(); t = r.json()["content"][0]["text"]; j = json.loads(t[t.find("{"):t.rfind("}") + 1]); d = Decision(j["decision"])
         return tighten(verdict.decision, d), "claude:" + j.get("reason", "")
     except Exception as e:  # fail closed
         return tighten(verdict.decision, Decision.HOLD), f"claude_error:{type(e).__name__}"

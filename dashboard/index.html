@@ -1,0 +1,21 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Tripwire dashboard</title>
+<style>body{font-family:system-ui,sans-serif;background:#0d1117;color:#e6edf3;margin:24px}h1{color:#58a6ff;margin:0 0 4px}h2{color:#79c0ff;font-size:16px;margin:22px 0 8px}
+table{border-collapse:collapse;width:100%;font-size:13px}td,th{border-bottom:1px solid #30363d;padding:6px 8px;text-align:left;vertical-align:top}th{color:#8b949e}
+.allow{color:#3fb950}.hold{color:#d29922}.deny{color:#f85149}.pill{display:inline-block;padding:2px 8px;border-radius:10px;background:#21262d;margin-right:6px;font-size:12px}
+button{border:0;border-radius:6px;padding:4px 10px;margin-right:4px;cursor:pointer;color:#fff}.ap{background:#238636}.dn{background:#da3633}code{font-size:12px;color:#a5d6ff}</style></head>
+<body><h1>Tripwire</h1><div>Firewall for AI-agent payments · Airwallex sandbox + Metal testnet</div><div id="st" style="margin-top:8px"></div>
+<h2>Audit chain</h2><div id="au"></div>
+<h2>Holds awaiting approval</h2><table id="ho"></table>
+<h2>Policy decisions</h2><table id="de"></table>
+<h2>Recent Airwallex / Metal actions</h2><table id="ac"></table>
+<script>
+const g=u=>fetch(u).then(r=>r.json()),esc=s=>String(s??"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+async function act(h,a){await fetch(`/holds/${h}/${a}?approver=dashboard`,{method:"POST"});load()}
+function short(r){const k=["id","status","transaction","settlement_id","receipt_status","mode","simulated","mock","ok","error","fallback_reason"];return k.filter(x=>r&&r[x]!==undefined&&r[x]!==null).map(x=>`${x}=<code>${esc(String(r[x]).slice(0,70))}</code>`).join(" ")}
+async function load(){const [s,a,h,d,x]=await Promise.all([g("/status"),g("/audit/verify"),g("/holds"),g("/decisions"),g("/actions")]);
+st.innerHTML=Object.entries(s).map(([k,v])=>`<span class=pill>${k}: <b>${v}</b></span>`).join("");
+au.innerHTML=a.ok?'<span class=allow>✔ hash chain intact</span>':`<span class=deny>✘ broken at ${a.broken_at}</span>`;
+ho.innerHTML="<tr><th>hold</th><th>agent</th><th>kind</th><th>amount</th><th>payee</th><th>rules</th><th></th></tr>"+(h.map(r=>`<tr><td>${r.hold_id}</td><td>${esc(r.agent_id)}</td><td>${r.kind}</td><td>${r.amount} ${r.currency}</td><td><code>${esc(r.payee_id).slice(0,40)}</code></td><td>${r.reasons.join(", ")}</td><td><button class=ap onclick="act('${r.hold_id}','approve')">Approve</button><button class=dn onclick="act('${r.hold_id}','deny')">Deny</button></td></tr>`).join("")||"<tr><td colspan=7>none</td></tr>");
+de.innerHTML="<tr><th>time</th><th>agent</th><th>kind</th><th>amount</th><th>final</th><th>rules</th><th>verifier</th></tr>"+d.map(r=>`<tr><td>${r.at.slice(11)}</td><td>${esc(r.agent_id)}</td><td>${r.kind}</td><td>${r.amount} ${r.currency}</td><td class=${r.final}><b>${r.final.toUpperCase()}</b></td><td>${r.reasons.join(", ")}</td><td>${esc(r.verifier).slice(0,60)}</td></tr>`).join("");
+ac.innerHTML="<tr><th>time</th><th>rail</th><th>agent</th><th>amount</th><th>result</th></tr>"+x.map(r=>`<tr><td>${r.at.slice(11)}</td><td>${r.rail}</td><td>${esc(r.agent_id)}</td><td>${r.amount} ${r.currency}</td><td>${short(r.result)}</td></tr>`).join("")}
+load();setInterval(load,3000)</script></body></html>
