@@ -19,7 +19,7 @@ agent → POST /pay → deterministic policy gate (limits, payee/country allowli
 | Metal testnet, Kit 11 | x402 `exact` payments; mandate (owner's MetalAccount, cap 1 / budget 5 USDZ, payee allowlist) bound on chain; agent pays under it | `tripwire/metal.py`, `@metalntwx/metal-agent@0.3.3` |
 | Metal testnet, Kit 12 | clearing (`bajillion`): deposit once, pay per call off chain, preconfirmed receipt | `metal/clearing.mjs`, `@metalntwx/metal-pay@0.3.4` |
 | Slack approvals | Block Kit Approve/Deny buttons, signed `/slack/interactions` (HMAC v0) → hold resolve; console stub if unset | `tripwire/slack.py` |
-| Claude verifier | Anthropic Messages API, tighten-only, fail-closed; heuristic stub if no key | `tripwire/verifier.py` |
+| Claude verifier | **Live** with `claude-haiku-4-5` via Anthropic Messages API, tighten-only, fail-closed; heuristic stub if no key | `tripwire/verifier.py` |
 | Dashboard | decisions, holds with Approve/Deny, audit-chain status, recent Airwallex/Metal actions | `dashboard/index.html` at `/` |
 
 Metal is hard-wired to **testnet** (`eip155:63825`); there is no mainnet path.
