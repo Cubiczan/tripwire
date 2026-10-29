@@ -28,7 +28,7 @@ def pay(p: PayIn):
     out = {"policy": v.decision.value, "reasons": v.reasons, "verifier": vr, "final": final.value}
     if final == Decision.ALLOW:
         history.append(req)
-        out["execution"] = aw.issue_card_simulated(p.agent_id, p.amount) if p.kind == "card" else aw.create_transfer(p.payee_id, p.amount, p.currency)
+        out["execution"] = aw.issue_card(p.agent_id, p.amount) if p.kind == "card" else aw.create_transfer(p.payee_id, p.amount, p.currency)
     elif final == Decision.HOLD:
         hid = f"hold_{len(holds)+1}"; holds[hid] = req; out["hold_id"] = hid; notify_slack(hid, req)
     out["audit_hash"] = audit.append({"req": req.__dict__, **out}); return out
