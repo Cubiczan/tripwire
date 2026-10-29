@@ -26,7 +26,7 @@ Held payments post a Slack Block Kit card with Approve/Deny buttons (the team's 
 Authentication login → FX current rates → Transfers (create, unique request_id) → Issuing cardholders + virtual cards with authorization controls. Balances and beneficiaries are read for setup.
 
 ## Tech stack
-Python 3.13, FastAPI, httpx, SQLite hash-chained audit log, pytest (23 tests); Node 22 with @metalntwx/metal-agent 0.3.3 and metal-pay 0.3.4; Slack Block Kit; Claude verifier (Anthropic Messages API, tighten-only, fail-closed); vanilla-JS dashboard; Airwallex demo sandbox and Metal testnet.
+Python 3.13, FastAPI, httpx, SQLite hash-chained audit log, pytest (23 tests); Node 22 with @metalntwx/metal-agent 0.3.3 and metal-pay 0.3.4; Slack Block Kit; Claude verifier running live with claude-haiku-4-5 (Anthropic Messages API, tighten-only, fail-closed); vanilla-JS dashboard; Airwallex demo sandbox and Metal testnet.
 
 ## Demo steps
 1. `pip install -r requirements.txt`; copy `.env.example` to `.env` with sandbox keys.
