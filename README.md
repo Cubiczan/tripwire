@@ -29,3 +29,6 @@ Endpoints: `POST /pay`, `POST /holds/{id}/approve|deny`, `GET /audit/verify`.
 | Payee in KP → DENY | ![](docs/screenshots/05_pay_kp_denied.png) |
 | Audit chain verification | ![](docs/screenshots/06_audit_verify.png) |
 | Tests: 17/17 passed | ![](docs/screenshots/07_tests_17_passed.png) |
+| Held payment approved by human → executed | ![](docs/screenshots/08_hold_approved_executed.png) |
+
+Demo video (2 min): [docs/demo.mp4](docs/demo.mp4) · Submission draft: [docs/SUBMISSION.md](docs/SUBMISSION.md)
