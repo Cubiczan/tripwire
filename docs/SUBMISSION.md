@@ -5,7 +5,7 @@ Airwallex Agentic Banking Hackathon (HackerEarth) · Team: Shyam's Team 2 · Bui
 
 **Tagline:** Agents propose. Policy decides. Humans approve. Airwallex executes.
 
-**Repo:** https://github.com/Cubiczan/tripwire · **Video:** https://youtu.be/RLp5Dofs6W8
+**Repo:** https://github.com/Cubiczan/tripwire · **Video:** https://youtu.be/hveaN1Tmm6w
 
 > **Status (Nov 2):** full flow verified live on the Airwallex demo sandbox: real transfers (incl. a held 5,000 EUR payment released by the CFO), live FX check, real Issuing virtual card. Mock fallback is labelled. Metal shown in earlier testnet runs. Demo video for this run: docs/demo_live_nov2.mp4 (1:39; to be uploaded).
 
