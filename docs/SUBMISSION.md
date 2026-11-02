@@ -1,5 +1,5 @@
 # Tripwire: submission draft (NOT SUBMITTED)
-Airwallex Agentic Banking Hackathon (HackerEarth) · Team: Shyam's Team 2 · Deadline Nov 13 2026, 2:29 PM ET
+Airwallex Agentic Banking Hackathon (HackerEarth) · Team: Shyam's Team 2 · Build phase ends Nov 15 2026, 6:29 PM UTC (1:29 PM ET) per the HackerEarth page; plan for Nov 13
 
 **Title:** Tripwire: a firewall for AI-agent payments on Airwallex and Metal
 
@@ -7,7 +7,7 @@ Airwallex Agentic Banking Hackathon (HackerEarth) · Team: Shyam's Team 2 · Dea
 
 **Repo:** https://github.com/Cubiczan/tripwire · **Video:** https://youtu.be/RLp5Dofs6W8
 
-> **Status note (Nov 2):** the current scoped sandbox key only has Webhooks Read; transfers/FX/Issuing return 401 and run as labeled mock until the key gets those scopes (see README). Built for a CFO and finance team.
+> **Status (Nov 2):** full flow verified live on the Airwallex demo sandbox: real transfers (incl. a held 5,000 EUR payment released by the CFO), live FX check, real Issuing virtual card. Mock fallback is labelled. Metal shown in earlier testnet runs. Demo video for this run: docs/demo_live_nov2.mp4 (1:39; to be uploaded).
 
 ## Description
 Companies want AI agents to pay vendors, top up cards and move money, but handing an agent raw payment credentials is unsafe. Tripwire is a payment firewall that sits between any agent and Airwallex. The agent can only call `POST /pay`. Every request goes through a deterministic policy gate (amount limits, payee and country allowlists, velocity, time window, and deviation of the quoted FX rate from mid-market). An LLM verifier can only tighten a decision, never loosen it. The result is ALLOW (executed on Airwallex), HOLD (queued for a human approver), or DENY, with the exact rules that fired. Every decision is written to a hash-chained, tamper-evident audit log.
@@ -28,11 +28,11 @@ Held payments post a Slack Block Kit card with Approve/Deny buttons (the team's 
 Authentication login → FX current rates → Transfers (create, unique request_id) → Issuing cardholders + virtual cards with authorization controls. Balances and beneficiaries are read for setup.
 
 ## Tech stack
-Python 3.13, FastAPI, httpx, SQLite hash-chained audit log, pytest (23 tests); Node 22 with @metalntwx/metal-agent 0.3.3 and metal-pay 0.3.4; Slack Block Kit; Claude verifier running live with claude-haiku-4-5 (Anthropic Messages API, tighten-only, fail-closed); vanilla-JS dashboard; Airwallex demo sandbox and Metal testnet.
+Python 3.13, FastAPI, httpx, SQLite hash-chained audit log, pytest (24 tests); Node 22 with @metalntwx/metal-agent 0.3.3 and metal-pay 0.3.4; Slack Block Kit; Claude verifier running live with claude-haiku-4-5 (Anthropic Messages API, tighten-only, fail-closed); vanilla-JS dashboard; Airwallex demo sandbox and Metal testnet.
 
 ## Demo steps
 1. `pip install -r requirements.txt`; copy `.env.example` to `.env` with sandbox keys.
 2. `uvicorn tripwire.app:app`
 3. POST /pay $25 → ALLOW + scheduled transfer; $250 with `buy_currency=GBP` → FX-checked ALLOW; `kind=card` $50 → ACTIVE Issuing card; $5,000 → HOLD; approve the hold → executed; `payee_country=KP` → DENY.
 4. Metal: POST /pay `kind=x402`, `url=https://x402-demo-testnet.metalntwx.com/quote`, `metal_mode` exact / mandate / clearing → ALLOW and settled on testnet; a memo like "URGENT…" → HOLD → approve → settled.
-5. Open `/` for the dashboard; `GET /audit/verify` → `{"ok": true}`; `pytest -q` → 23 passed.
+5. Open `/` for the dashboard; `GET /audit/verify` → `{"ok": true}`; `pytest -q` → 24 passed.

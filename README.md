@@ -43,7 +43,40 @@ pytest -q && uvicorn tripwire.app:app     # dashboard at http://localhost:8000/
 Endpoints: `POST /pay` (`kind`: transfer | card | x402 with `url`, `metal_mode`: exact | mandate | clearing), `POST /holds/{id}/approve|deny`,
 `POST /slack/interactions`, `GET /holds /decisions /actions /status /audit/verify`.
 
-## Status as of Nov 2 2026 (honest)
+## Status as of Nov 2 2026, 3:00 PM ET (honest)
+The sandbox key (scoped key `tripwire`, demo env) now has account-scoped permissions. Live probe (`GET /airwallex/probe`):
+balances, FX rates, beneficiaries, transfers, payment intents, Issuing cardholders, webhooks → **200**; conversions list → 400 (not used).
+
+Full flow run live against the Airwallex demo sandbox (`mock:false`, real Airwallex IDs):
+| Step | Result |
+|---|---|
+| 25 EUR transfer | ALLOW → real sandbox transfer, SCHEDULED |
+| 250 EUR + live FX check (EUR→GBP rate vs mid) | ALLOW → real sandbox transfer, SCHEDULED |
+| 50 USD card | ALLOW → real Issuing virtual card, ACTIVE |
+| 5,000 EUR | HOLD → CFO approves → real sandbox transfer, SCHEDULED |
+| Payee in KP | DENY, nothing moves |
+| Audit chain | intact |
+
+Mock fallback stays: no keys → mock; any Airwallex 4xx on transfers/FX → executes as mock with `mock:true` and `fallback_reason`; Issuing errors → simulated card with reason.
+Known limits: transfers use a pre-existing sandbox EUR beneficiary (LOCAL method); Metal ran in mock in this run (testnet keys not loaded); Slack is a console stub.
+
+| | |
+|---|---|
+| Key permission probe | ![](docs/screenshots/20_live_probe.png) |
+| 25 EUR transfer, live | ![](docs/screenshots/21_live_transfer_25_allow.png) |
+| 250 EUR, live FX check | ![](docs/screenshots/22_live_fx_checked_250.png) |
+| Live Issuing card | ![](docs/screenshots/23_live_issuing_card.png) |
+| 5,000 EUR HOLD | ![](docs/screenshots/24_live_hold_5000.png) |
+| CFO approves → executed live | ![](docs/screenshots/25_live_hold_approved.png) |
+| KP DENY | ![](docs/screenshots/26_kp_denied.png) |
+| Audit verify | ![](docs/screenshots/27_audit_verify.png) |
+| Dashboard after live run | ![](docs/screenshots/28_dashboard_live_nov2.png) |
+
+Demo video (live sandbox run, 1:39): [docs/demo_live_nov2.mp4](docs/demo_live_nov2.mp4). Tests: `pytest -q` → 24 passed.
+
+Earlier (Nov 2, 2:50 PM ET) the key had only Webhooks Read; that run is kept below for the record.
+
+### Earlier scoped-key run (Webhooks Read only)
 The current sandbox key (scoped key `tripwire`, demo env) logs in (201) but only has **Webhooks Read**. Live probe (`GET /airwallex/probe`):
 
 | Endpoint | Status |

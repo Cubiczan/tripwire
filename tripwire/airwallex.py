@@ -23,18 +23,23 @@ class AirwallexClient:
         r.raise_for_status(); j = r.json(); rate = j.get("client_rate", j.get("rate"))
         mid = next((d.get("rate") for d in j.get("rate_details", []) if d.get("level") == "AWX"), j.get("mid_rate", rate))
         return {"rate": rate, "mid": mid, "currency_pair": j.get("currency_pair"), "mock": False}
-    def create_transfer(self, beneficiary_id, amount, currency, reason="agent payment"):
+    def create_transfer(self, beneficiary_id, amount, currency, reason="agent payment", method=None):
         if self.mock:
             t = {"id": f"mock_tr_{uuid.uuid4().hex[:10]}", "status": "SUBMITTED", "amount": amount, "currency": currency, "mock": True}
             self.ledger.append(t); return t
         body = {"beneficiary_id": beneficiary_id, "transfer_amount": amount, "transfer_currency": currency, "source_currency": currency,
-                "reason": reason, "reference": "tripwire", "request_id": str(uuid.uuid4()), "transfer_method": "LOCAL"}
+                "reason": reason, "reference": "tripwire", "request_id": str(uuid.uuid4()), "transfer_method": method or os.getenv("AIRWALLEX_TRANSFER_METHOD", "LOCAL")}
         r = httpx.post(f"{BASE}/api/v1/transfers/create", json=body, headers=self._auth())
         if r.status_code in (401, 403):
             t = {"id": f"mock_tr_{uuid.uuid4().hex[:10]}", "status": "SUBMITTED", "amount": amount, "currency": currency, "mock": True,
                  "fallback_reason": f"Transfers {r.status_code}: key lacks Transfers write permission"}
             self.ledger.append(t); return t
-        r.raise_for_status(); return r.json()
+        if r.status_code >= 400:
+            t = {"id": f"mock_tr_{uuid.uuid4().hex[:10]}", "status": "SUBMITTED", "amount": amount, "currency": currency, "mock": True,
+                 "fallback_reason": f"Transfers {r.status_code}: {r.json().get('code', 'error') if r.headers.get('content-type','').startswith('application/json') else 'error'}"}
+            self.ledger.append(t); return t
+        j = r.json(); return {"id": j.get("id"), "status": j.get("status"), "amount": j.get("amount_beneficiary_receives", amount),
+                              "currency": currency, "amount_payer_pays": j.get("amount_payer_pays"), "mock": False}
     def issue_card(self, agent_id, limit, currency="USD", cardholder_id=None):
         """Kit 02: real sandbox Issuing virtual card; falls back to simulated on any sandbox error."""
         if not self.mock:
