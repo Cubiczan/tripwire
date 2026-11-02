@@ -15,11 +15,14 @@ Companies want AI agents to pay vendors, top up cards and move money, but handin
 ## The four judging requirements
 - **End-to-end workflow for a clear user:** a finance team lets its accounts-payable agent pay vendors and spin up spend cards; Tripwire executes routine payments automatically and routes the rest to the finance lead.
 - **Airwallex for a necessary financial action:** real sandbox transfers (`/api/v1/transfers/create`) and real Issuing virtual cards (`/api/v1/issuing/cards/create`) with per-transaction limits.
-- **Financial context drives the decision:** live FX rates (`/api/v1/fx/rates/current`) are compared with mid-market before money moves; amount, velocity and payee country change the outcome.
+- **Financial context drives the decision:** live FX rates (`/api/v1/fx/rates/current`) are compared with mid-market before money moves, and the company's books in T:0 are read live: the payee must be a known vendor with an open bill for a matching amount (within 1%), and cash from the T:0 balance sheet must cover the payment. Otherwise the payment is held or denied. After execution Tripwire calls T:0's journal-entry API so the books stay reconciled. The live call returned 403 because the hackathon key doesn't have journal-entry permission, and the README says so. Amount, velocity and payee country also change the outcome.
 - **Controls and exceptions:** under-threshold payments auto-execute; above-threshold payments HOLD until a human approves (`/holds/{id}/approve|deny`); blocked countries or over-max amounts DENY; Issuing errors fall back to a simulated card and record the reason; audit chain verification at `/audit/verify`.
 
 ## Metal (Kits 11 and 12, testnet) · for the Metal Award
 Agents can also buy x402 resources. Tripwire reads the seller's 402 offer, runs the same policy and verifier, and only then pays on Metal testnet in one of three modes: `exact` (EIP-3009 transfer), `mandate` (the agent pays from its owner's MetalAccount under a mandate bound on chain: per-payment cap, total budget, payee allowlist, expiry), or Kit 12 `clearing` (deposit once, pay per call off chain, preconfirmed receipts). A held Metal payment settles only after a human approves. Built on @metalntwx/metal-agent 0.3.3 and @metalntwx/metal-pay 0.3.4.
+
+## T:0 books (financial context)
+Live T:0 reads (vendors, open vendor bills, balance-sheet cash, GL accounts) feed the policy gate: `t0_vendor_unknown`, `t0_no_open_bill` and `t0_amount_mismatch` HOLD the payment, `t0_insufficient_cash` DENIES it, and a T:0 outage fails closed. In the live run, €25 to a vendor whose T:0 bills were all paid was held, approved by the CFO, and executed on Airwallex. The T:0 journal-entry POST was attempted and returned 403 (key permission). The matching-bill ALLOW path is covered by tests with a mocked T:0.
 
 ## Human approval
 Held payments post a Slack Block Kit card with Approve/Deny buttons (the team's own Slack app); clicks hit a signature-verified `/slack/interactions` endpoint. The dashboard offers the same buttons, plus the decision feed, recent Airwallex/Metal actions and audit-chain status.
@@ -28,7 +31,7 @@ Held payments post a Slack Block Kit card with Approve/Deny buttons (the team's 
 Authentication login → FX current rates → Transfers (create, unique request_id) → Issuing cardholders + virtual cards with authorization controls. Balances and beneficiaries are read for setup.
 
 ## Tech stack
-Python 3.13, FastAPI, httpx, SQLite hash-chained audit log, pytest (24 tests); Node 22 with @metalntwx/metal-agent 0.3.3 and metal-pay 0.3.4; Slack Block Kit; Claude verifier running live with claude-haiku-4-5 (Anthropic Messages API, tighten-only, fail-closed); vanilla-JS dashboard; Airwallex demo sandbox and Metal testnet.
+Python 3.13, FastAPI, httpx, SQLite hash-chained audit log, pytest (32 tests); Node 22 with @metalntwx/metal-agent 0.3.3 and metal-pay 0.3.4; Slack Block Kit; Claude verifier running live with claude-haiku-4-5 (Anthropic Messages API, tighten-only, fail-closed); vanilla-JS dashboard; Airwallex demo sandbox, T:0 API (api.t0.ai) and Metal testnet.
 
 ## Demo steps
 1. `pip install -r requirements.txt`; copy `.env.example` to `.env` with sandbox keys.

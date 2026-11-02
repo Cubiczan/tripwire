@@ -1,0 +1,150 @@
+
+### status
+{
+ "airwallex": "live-sandbox",
+ "metal": "mock",
+ "slack": "stub",
+ "claude": "live",
+ "t0": "live"
+}
+[slack-stub] approval needed hold_1: ap-agent 25.0 EUR -> 68460101-9070-454c-9fc6-12388b475447
+
+### 1. EUR 25 to Due Ltd. (T:0 vendor) - T:0 shows no OPEN bill
+{
+ "policy": "hold",
+ "reasons": [
+  "t0_no_open_bill"
+ ],
+ "verifier": "claude:Transaction held due to policy violation: t0_no_open_bill - no open bill found for this payment",
+ "final": "hold",
+ "t0_context": {
+  "source": "t0-live",
+  "vendor": {
+   "id": "canon_vendor_prod_ZhvCz6AhYlcKcdfk",
+   "name": "Due Ltd."
+  },
+  "cash_usd": 216929.3,
+  "open_bills": [],
+  "amount_usd": 27.83,
+  "flags": [
+   "t0_no_open_bill"
+  ]
+ },
+ "hold_id": "hold_1",
+ "approval": {
+  "slack": "stub"
+ },
+ "audit_hash": "86d7e557aa7e797b564e06981e4f4ca6fb3fe4f01f0145af50136af26d35104e"
+}
+
+### 2. CFO approves hold -> Airwallex executes -> journal entry POST to T:0 attempted
+{
+ "hold_id": "hold_1",
+ "action": "approve",
+ "approver": "cfo",
+ "execution": {
+  "id": "468de7d9-20cf-429b-a506-7f5f089d4c5d",
+  "status": "SCHEDULED",
+  "amount": 25,
+  "currency": "EUR",
+  "amount_payer_pays": 25,
+  "mock": false,
+  "t0_journal_entry": {
+   "status_code": 403,
+   "id": null,
+   "je_number": null,
+   "mock": false,
+   "error": "CAPI71"
+  }
+ },
+ "audit_hash": "c32ba806c92ac241fb5952c4dce0d62ae43d77164b3793809fb38b257bff8cbe"
+}
+[slack-stub] approval needed hold_2: ap-agent 25.0 EUR -> 0f5a34e8-6427-42e7-a786-202ce87a6ee3
+
+### 3. EUR 25 to a beneficiary not mapped to any T:0 vendor
+{
+ "policy": "hold",
+ "reasons": [
+  "t0_vendor_unknown"
+ ],
+ "verifier": "claude:Vendor 0f5a34e8-6427-42e7-a786-202ce87a6ee3 is unknown - requires verification before processing transfer",
+ "final": "hold",
+ "t0_context": {
+  "source": "t0-live",
+  "vendor": null,
+  "cash_usd": 216929.3,
+  "amount_usd": 27.83,
+  "flags": [
+   "t0_vendor_unknown"
+  ]
+ },
+ "hold_id": "hold_2",
+ "approval": {
+  "slack": "stub"
+ },
+ "audit_hash": "345af083c8bcad8912c43c0b197f0d623bb4e06f5f1eb0a6a98f921200dee898"
+}
+
+### 4. USD 50 card - T:0 cash check only
+{
+ "policy": "allow",
+ "reasons": [
+  "ok"
+ ],
+ "verifier": "claude:Payment request matches policy decision 'allow' with status 'ok'. Standard USD card payment to US-based SaaS provider within normal parameters.",
+ "final": "allow",
+ "t0_context": {
+  "source": "t0-live",
+  "vendor": null,
+  "cash_usd": 216929.3,
+  "amount_usd": 50.0,
+  "flags": []
+ },
+ "execution": {
+  "id": "445d4eec-91ed-4627-b401-efb4061f6eef",
+  "agent_id": "ap-agent",
+  "limit": 50.0,
+  "status": "ACTIVE",
+  "simulated": false
+ },
+ "audit_hash": "08972441f1f141d72ef1a8cd037431e28809e0a59de9836265fa410d224e92e8"
+}
+
+### T:0 calls (method, path, HTTP status)
+[
+ {
+  "method": "GET",
+  "path": "/v1/vendors/canon_vendor_prod_ZhvCz6AhYlcKcdfk",
+  "status": 200
+ },
+ {
+  "method": "GET",
+  "path": "/v1/reports/balance-sheet",
+  "status": 200
+ },
+ {
+  "method": "GET",
+  "path": "/v1/vendor-bills",
+  "status": 200
+ },
+ {
+  "method": "GET",
+  "path": "/v1/gl-accounts",
+  "status": 200
+ },
+ {
+  "method": "POST",
+  "path": "/v1/journal-entries",
+  "status": 403
+ },
+ {
+  "method": "GET",
+  "path": "/v1/reports/balance-sheet",
+  "status": 200
+ },
+ {
+  "method": "GET",
+  "path": "/v1/reports/balance-sheet",
+  "status": 200
+ }
+]

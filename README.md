@@ -20,9 +20,37 @@ agent → POST /pay → deterministic policy gate (limits, payee/country allowli
 | Metal testnet, Kit 12 | clearing (`bajillion`): deposit once, pay per call off chain, preconfirmed receipt | `metal/clearing.mjs`, `@metalntwx/metal-pay@0.3.4` |
 | Slack approvals | Block Kit Approve/Deny buttons, signed `/slack/interactions` (HMAC v0) → hold resolve; console stub if unset | `tripwire/slack.py` |
 | Claude verifier | **Live** with `claude-haiku-4-5` via Anthropic Messages API, tighten-only, fail-closed; heuristic stub if no key | `tripwire/verifier.py` |
+| T:0 (t0.ai) books | vendor, open bills, cash (balance sheet), GL accounts drive the decision; journal-entry write-back after execution | `tripwire/t0.py` |
 | Dashboard | decisions, holds with Approve/Deny, audit-chain status, recent Airwallex/Metal actions | `dashboard/index.html` at `/` |
 
 Metal is hard-wired to **testnet** (`eip155:63825`); there is no mainnet path.
+
+## T:0 books as financial context (live, Nov 2 2026)
+Before the policy gate decides on a transfer, Tripwire pulls the company's books from [T:0](https://t0.ai) (`tripwire/t0.py`, read with the T:0 sandbox key) and adds these rules. T:0 rules can only tighten a decision.
+
+| T:0 data (endpoint) | Rule | Outcome |
+|---|---|---|
+| `GET /v1/vendors/{id}` (Airwallex beneficiary to T:0 vendor via `T0_VENDOR_MAP`) | payee isn't a known vendor | HOLD `t0_vendor_unknown` |
+| `GET /v1/vendor-bills?status=open` | vendor has no open bill | HOLD `t0_no_open_bill` |
+| same | open bill exists but no amount within 1% | HOLD `t0_amount_mismatch` |
+| `GET /v1/reports/balance-sheet` (Bank group) | amount (USD via Airwallex FX) is more than cash | DENY `t0_insufficient_cash` (optional HOLD below `T0_MIN_CASH_BUFFER`) |
+| any T:0 error | fail closed | HOLD `t0_unavailable` |
+
+After an Airwallex transfer executes, Tripwire calls `POST /v1/journal-entries` with an `X-Idempotency-Key` set to the transfer id. The entry debits Accounts Payable (21100, with the vendor as counterparty) when a bill matched, or Uncategorized (90000) when a person approved it with no bill. It credits Transfer Clearing (11900), using GL ids from `GET /v1/gl-accounts`. For an EUR transfer it books USD functional plus EUR transaction amounts.
+
+**Live run results** (`scripts/t0_live_demo.py`, output in `docs/t0_live_demo_nov2.txt`), against the live Airwallex sandbox and the live T:0 sandbox entity:
+- T:0 reads returned **200**: vendors, vendor-bills, balance-sheet (Bank $216,929.30) and gl-accounts.
+- €25 to the sandbox EUR beneficiary, mapped to the T:0 vendor "Due Ltd.": all 14 T:0 bills are `paid`, with no open bill, so it was **HELD** (`t0_no_open_bill`). The CFO approved it, Airwallex created transfer `468de7d9…` (**SCHEDULED**), and the journal-entry POST returned **403 `CAPI71`**. The T:0 key we were given doesn't have the Create journal entries permission, so **no entry was written to T:0**.
+- €25 to an unmapped beneficiary was **HELD** (`t0_vendor_unknown`).
+- A $50 card passed the T:0 cash check and Airwallex Issuing returned an **ACTIVE** card.
+- Not live: seeding an open bill (`POST /v1/records`) returned **403 `CAPI72`** because the key has no Custom API connection. So the ALLOW-on-matching-bill path and `t0_amount_mismatch` are shown **only in tests with a mocked T:0** (`tests/test_t0.py`).
+- The beneficiary-to-vendor mapping is demo config. Metal was mock and Slack was a stub in this run.
+
+![T:0 no open bill hold](docs/screenshots/30_t0_no_open_bill_hold.png)
+![Approve, execute, JE attempt](docs/screenshots/31_t0_approve_execute_je.png)
+![Vendor unknown and card](docs/screenshots/32_t0_vendor_unknown_and_card.png)
+![T:0 call log](docs/screenshots/33_t0_call_log.png)
+![32 tests passed](docs/screenshots/34_tests_32_passed.png)
 
 ## Setup
 ```bash
