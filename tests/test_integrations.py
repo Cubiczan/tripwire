@@ -69,3 +69,17 @@ def test_claude_live_path_tightens_only(monkeypatch):
     d, _ = verifier.verify(req, evaluate(PaymentRequest("a", "transfer", 9000, "USD", "p", "US", datetime(2026, 11, 2, 12)), Policy(), [])); assert d == Decision.DENY
     def boom(*a, **k): raise RuntimeError
     monkeypatch.setattr(verifier.httpx, "post", boom); d, why = verifier.verify(req, v); assert d == Decision.HOLD and "error" in why
+
+
+def test_airwallex_401_falls_back_labeled(monkeypatch):
+    import httpx
+    from tripwire.airwallex import AirwallexClient
+    c = AirwallexClient(mock=False); c._token = "t"
+    class R:
+        status_code = 401
+        def json(self): return {"code": "unauthorized"}
+        def raise_for_status(self): raise AssertionError("should not raise")
+    monkeypatch.setattr(httpx, "get", lambda *a, **k: R()); monkeypatch.setattr(httpx, "post", lambda *a, **k: R())
+    fx = c.fx_quote("USD", "GBP", 100); tr = c.create_transfer("b", 10, "USD")
+    assert fx["mock"] and "401" in fx["fallback_reason"]
+    assert tr["mock"] and tr["id"].startswith("mock_tr_") and "401" in tr["fallback_reason"]

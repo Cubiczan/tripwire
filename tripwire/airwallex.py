@@ -16,8 +16,11 @@ class AirwallexClient:
         if self.mock:
             mid = {"USDGBP": 0.79, "USDAUD": 1.52, "USDSGD": 1.35}.get(sell + buy, 1.0)
             return {"rate": mid, "mid": mid, "mock": True}
-        r = httpx.get(f"{BASE}/api/v1/fx/rates/current", params={"sell_currency": sell, "buy_currency": buy, "sell_amount": amount}, headers=self._auth()); r.raise_for_status()
-        j = r.json(); rate = j.get("client_rate", j.get("rate"))
+        r = httpx.get(f"{BASE}/api/v1/fx/rates/current", params={"sell_currency": sell, "buy_currency": buy, "sell_amount": amount}, headers=self._auth())
+        if r.status_code in (401, 403):
+            mid = {"USDGBP": 0.79, "USDAUD": 1.52, "USDSGD": 1.35}.get(sell + buy, 1.0)
+            return {"rate": mid, "mid": mid, "mock": True, "fallback_reason": f"FX {r.status_code}: key lacks FX read permission"}
+        r.raise_for_status(); j = r.json(); rate = j.get("client_rate", j.get("rate"))
         mid = next((d.get("rate") for d in j.get("rate_details", []) if d.get("level") == "AWX"), j.get("mid_rate", rate))
         return {"rate": rate, "mid": mid, "currency_pair": j.get("currency_pair"), "mock": False}
     def create_transfer(self, beneficiary_id, amount, currency, reason="agent payment"):
@@ -26,7 +29,12 @@ class AirwallexClient:
             self.ledger.append(t); return t
         body = {"beneficiary_id": beneficiary_id, "transfer_amount": amount, "transfer_currency": currency, "source_currency": currency,
                 "reason": reason, "reference": "tripwire", "request_id": str(uuid.uuid4()), "transfer_method": "LOCAL"}
-        r = httpx.post(f"{BASE}/api/v1/transfers/create", json=body, headers=self._auth()); r.raise_for_status(); return r.json()
+        r = httpx.post(f"{BASE}/api/v1/transfers/create", json=body, headers=self._auth())
+        if r.status_code in (401, 403):
+            t = {"id": f"mock_tr_{uuid.uuid4().hex[:10]}", "status": "SUBMITTED", "amount": amount, "currency": currency, "mock": True,
+                 "fallback_reason": f"Transfers {r.status_code}: key lacks Transfers write permission"}
+            self.ledger.append(t); return t
+        r.raise_for_status(); return r.json()
     def issue_card(self, agent_id, limit, currency="USD", cardholder_id=None):
         """Kit 02: real sandbox Issuing virtual card; falls back to simulated on any sandbox error."""
         if not self.mock:
@@ -49,3 +57,18 @@ class AirwallexClient:
         return self.issue_card_simulated(agent_id, limit)
     def issue_card_simulated(self, agent_id, limit):
         return {"id": f"sim_card_{uuid.uuid4().hex[:8]}", "agent_id": agent_id, "limit": limit, "simulated": True}
+
+    PROBES = {"balances": "/api/v1/balances/current", "fx_rates": "/api/v1/fx/rates/current?sell_currency=USD&buy_currency=GBP&sell_amount=100",
+              "beneficiaries": "/api/v1/beneficiaries", "transfers": "/api/v1/transfers", "payment_intents": "/api/v1/pa/payment_intents",
+              "issuing_cardholders": "/api/v1/issuing/cardholders", "conversions": "/api/v1/conversions", "webhooks": "/api/v1/webhooks"}
+    def probe(self):
+        """Real read-only sandbox probe: HTTP status per endpoint for the current key (no fabricated results)."""
+        if self.mock: return {"mode": "mock", "results": {}}
+        out = {}
+        for name, path in self.PROBES.items():
+            try: out[name] = httpx.get(f"{BASE}{path}", headers=self._auth(), timeout=15).status_code
+            except Exception as e: out[name] = f"error: {type(e).__name__}"
+        return {"mode": "live-sandbox", "login": 201, "results": out}
+    def list_webhooks(self):
+        if self.mock: return {"items": [], "mock": True}
+        r = httpx.get(f"{BASE}/api/v1/webhooks", headers=self._auth()); r.raise_for_status(); return {**r.json(), "mock": False}

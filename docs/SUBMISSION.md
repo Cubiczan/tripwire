@@ -5,7 +5,9 @@ Airwallex Agentic Banking Hackathon (HackerEarth) · Team: Shyam's Team 2 · Dea
 
 **Tagline:** Agents propose. Policy decides. Humans approve. Airwallex executes.
 
-**Repo:** https://github.com/Cubiczan/tripwire · **Video:** docs/demo.mp4 (upload to YouTube/Drive and paste link)
+**Repo:** https://github.com/Cubiczan/tripwire · **Video:** https://youtu.be/RLp5Dofs6W8
+
+> **Status note (Nov 2):** the current scoped sandbox key only has Webhooks Read; transfers/FX/Issuing return 401 and run as labeled mock until the key gets those scopes (see README). Built for a CFO and finance team.
 
 ## Description
 Companies want AI agents to pay vendors, top up cards and move money, but handing an agent raw payment credentials is unsafe. Tripwire is a payment firewall that sits between any agent and Airwallex. The agent can only call `POST /pay`. Every request goes through a deterministic policy gate (amount limits, payee and country allowlists, velocity, time window, and deviation of the quoted FX rate from mid-market). An LLM verifier can only tighten a decision, never loosen it. The result is ALLOW (executed on Airwallex), HOLD (queued for a human approver), or DENY, with the exact rules that fired. Every decision is written to a hash-chained, tamper-evident audit log.

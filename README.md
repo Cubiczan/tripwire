@@ -43,6 +43,24 @@ pytest -q && uvicorn tripwire.app:app     # dashboard at http://localhost:8000/
 Endpoints: `POST /pay` (`kind`: transfer | card | x402 with `url`, `metal_mode`: exact | mandate | clearing), `POST /holds/{id}/approve|deny`,
 `POST /slack/interactions`, `GET /holds /decisions /actions /status /audit/verify`.
 
+## Status as of Nov 2 2026 (honest)
+The current sandbox key (scoped key `tripwire`, demo env) logs in (201) but only has **Webhooks Read**. Live probe (`GET /airwallex/probe`):
+
+| Endpoint | Status |
+|---|---|
+| Webhooks list | **200, live** |
+| Balances, FX rates, Beneficiaries, Transfers, Payment Intents, Issuing cardholders/cards, Conversions | 401 "Insufficient permissions" |
+
+On a 401/403 Tripwire still runs the policy gate, verifier and audit log, then executes in **mock** and labels it (`mock: true`, `fallback_reason`).
+The Oct 29 screenshots below came from an earlier, broader sandbox key. To re-enable live execution, add these scopes to the key: FX rates read,
+Transfers read/write, Beneficiaries read, Balances read, Issuing cardholders/cards read/write (optional: Conversions write, Payment Acceptance).
+
+| Nov 2 dashboard, scoped key (transfer allowed → labeled mock fallback) | ![](docs/screenshots/16_dashboard_nov2_scoped_key.png) |
+|---|---|
+| Live permission probe | ![](docs/screenshots/17_airwallex_permission_probe.png) |
+
+Tests: `pytest -q` → 24 passed.
+
 ## Live demo (Airwallex demo sandbox + Metal testnet, Oct 29 2026)
 | | |
 |---|---|

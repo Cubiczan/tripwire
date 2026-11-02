@@ -76,6 +76,12 @@ def list_holds(): return [{"hold_id": h, "agent_id": p.agent_id, "kind": p.kind,
 def list_decisions(): return decisions[:100]
 @app.get("/actions")
 def list_actions(): return actions[:100]
+@app.get("/airwallex/probe")
+def airwallex_probe(): return aw.probe()
+
+@app.get("/airwallex/webhooks")
+def airwallex_webhooks(): return aw.list_webhooks()
+
 @app.get("/status")
 def status():
     return {"airwallex": "mock" if aw.mock else "live-sandbox", "metal": "mock" if metal.mock else "live-testnet",
